@@ -1,32 +1,11 @@
-// #include <bits/stdc++.h>
-// using namespace std;
-// float sigmoid(float x) {
-//     return 1 / (1 + exp(-x));
-// }
-// float f(float a, float x) {
-//     return  a / (a + (1 - a) * exp(-x));
-// }
-// int main() {
-//     for (float i = -3; i <= 3; i += 0.01) {
-//         for (float j = -3; j <= 3; j += 0.01) {
-//             cout << sigmoid(i + j) << ' ' << f(sigmoid(i), j) << endl;
-//         }
-//     }
-//     return 0;
-// }
-// #include <cstdint>
 #include <bits/stdc++.h>
-double __sigmoid(double x) {
-    return 1.0 / (1.0 + std::exp(-x));
-}
-
 using nT = std::uint16_t;
-constexpr nT N = 1 << 12;
+constexpr nT N = 1 << 11;
 nT __ADD[N][N], __SUB[N][N], __TIMES[N][N], __DIV[N][N];
 template <typename T = std::uint16_t, typename T1 = float, int len = 11, int V = 8>
 class SignedType {
     #define sign (v >> (len - 1))
-    #define MASK ((T(1) << len) - 1)
+    #define MASK ((T(1) << (len - 1)) - 1)
     private:
         T v;
         constexpr T __val() const { return v & MASK; }
@@ -37,7 +16,7 @@ class SignedType {
         }
         constexpr SignedType(): v(0) {}
         constexpr SignedType(T v) : v(v) {}
-        constexpr SignedType(T1 x) : v(x >= T1(0) ? 0 : T(1) << (len - 1)) {
+        constexpr SignedType(T1 x) : v(x >= T1(0) ? T(0) : T(1) << (len - 1)) {
             if (x < T1(0)) x = -x;
             v |= std::min((T) MASK, (T) std::round(x / (T1) V * (T1) MASK));
         }
@@ -68,35 +47,39 @@ class SignedType {
     #undef sign
     #undef MASK
 };
-using BT = SignedType<nT, float, 12, 1>;
+using BT = SignedType<nT, double, 11, 8>;
+nT __SIGMOID[N], __F[N][N];
+BT sigmoid(BT x) {
+    return BT(__SIGMOID[x.get()]);
+}
+BT f(BT x, BT y) { return BT(__F[x.get()][y.get()]); }
+double sigmoid(double x) { return 1.0 / (1.0 + std::exp(-x)); }
+double f(double a, double x) { return  a / (a + (1 - a) * exp(-x)); }
 int main() {
     using namespace std;
+    for (nT i = 0; i < N; i++) __SIGMOID[i] = BT(sigmoid(BT(i).val())).get();
     for (nT i = 0; i < N; i++) {
-        for (nT j = 0; j < N; j++) {
+        // double v = BT(i).val();
+        // if (v < 0 || v > 1) continue;
+        for (nT j = 0; j < N; j++)
+            __F[i][j] = BT(f(BT(i).val(), BT(j).val())).get();
+    }
+    for (nT i = 0; i < N; i++)
+        for (nT j = 0; j < N; j++)
             __ADD[i][j] = BT(BT(i).val() + BT(j).val()).get();
-        }
-    }
-    for (nT i = 0; i < N; i++) {
-        for (nT j = 0; j < N; j++) {
+    for (nT i = 0; i < N; i++)
+        for (nT j = 0; j < N; j++)
             __SUB[i][j] = BT(BT(i).val() - BT(j).val()).get();
-        }
-    }
-    for (nT i = 0; i < N; i++) {
-        for (nT j = 0; j < N; j++) {
+    for (nT i = 0; i < N; i++)
+        for (nT j = 0; j < N; j++)
             __TIMES[i][j] = BT(BT(i).val() * BT(j).val()).get();
-        }
-    }
-    for (nT i = 0; i < N; i++) {
-        for (nT j = 0; j < N; j++) {
+    for (nT i = 0; i < N; i++)
+        for (nT j = 0; j < N; j++)
             __DIV[i][j] = BT(BT(i).val() / BT(j).val()).get();
-        }
-    }
-    BT a(0.1f), b(0.2f);
-    cout << (a + b).val() << ' ' << (a - b).val() << ' ' << (a * b).val() << ' ' << (a / b).val() << endl;
     return 0;
 }
-// TODO:
 
+// TODO:
 // template <typename T = std::uint16_t, typename T1 = float, int len = 11, int V = 8>
 // class UnsignedType {
 //     #define MASK ((1 << len) - 1)
