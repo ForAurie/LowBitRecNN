@@ -18,7 +18,7 @@ constexpr int LEN = 13, N = 1 << LEN;
 
 // 类的定义
 template <typename T = std::uint16_t, typename T1 = float, int len = 12, int V = 5>
-class SignedType {
+class SamllType {
     #define sign (v >> (len - 1))
     #define MASK ((T(1) << (len - 1)) - 1)
     private:
@@ -29,17 +29,17 @@ class SignedType {
             if (sign) return -((T1) V * (T1) __val() / (T1) MASK);
             else return (T1) V * (T1) __val() / (T1) MASK;
         }
-        constexpr SignedType(): v(0) {}
-        constexpr SignedType(T v) : v(v) {}
-        constexpr SignedType(const SignedType& o) = default;
-        constexpr SignedType(T1 x) : v(x >= T1(0) ? T(0) : T(1) << (len - 1)) {
+        constexpr SamllType(): v(0) {}
+        constexpr SamllType(T v) : v(v) {}
+        constexpr SamllType(const SamllType& o) = default;
+        constexpr SamllType(T1 x) : v(x >= T1(0) ? T(0) : T(1) << (len - 1)) {
             if (x < T1(0)) x = -x;
             v |= std::min((T) MASK, (T) std::round(x / (T1) V * (T1) MASK));
         }
         constexpr T get() const { return v; }
-        inline bool operator==(const SignedType& o) const { return v == o.v; }
-        inline bool operator!=(const SignedType& o) const { return v != o.v; }
-        inline bool operator<(const SignedType& o) const {
+        inline bool operator==(const SamllType& o) const { return v == o.v; }
+        inline bool operator!=(const SamllType& o) const { return v != o.v; }
+        inline bool operator<(const SamllType& o) const {
             bool s1 = v >> (len - 1), s2 = o.v >> (len - 1);
             if (s1 != s2) {
                 if (__val() == 0 && o.__val() == 0) return false;
@@ -47,27 +47,27 @@ class SignedType {
             } else if (s1) return __val() > o.__val();
             else return __val() < o.__val();
         }
-        SignedType& operator=(const SignedType&o) { v = o.v; return *this; }
+        SamllType& operator=(const SamllType&o) { v = o.v; return *this; }
 
-        // SignedType operator+(const SignedType& o) const { return SignedType(__ADD[v][o.v]); }
-        // SignedType& operator+=(const SignedType& o) { return v = __ADD[v][o.v], *this; }
+        // SamllType operator+(const SamllType& o) const { return SamllType(__ADD[v][o.v]); }
+        // SamllType& operator+=(const SamllType& o) { return v = __ADD[v][o.v], *this; }
 
-        // SignedType operator-(const SignedType& o) const { return SignedType(__SUB[v][o.v]); }
-        // SignedType& operator-=(const SignedType& o) { return v = __SUB[v][o.v], *this; }
+        // SamllType operator-(const SamllType& o) const { return SamllType(__SUB[v][o.v]); }
+        // SamllType& operator-=(const SamllType& o) { return v = __SUB[v][o.v], *this; }
 
-        // SignedType operator*(const SignedType& o) const { return SignedType(__TIMES[v][o.v]); }
-        // SignedType& operator*=(const SignedType& o) { return v = __TIMES[v][o.v], *this; }
+        // SamllType operator*(const SamllType& o) const { return SamllType(__TIMES[v][o.v]); }
+        // SamllType& operator*=(const SamllType& o) { return v = __TIMES[v][o.v], *this; }
 
-        // SignedType operator/(const SignedType& o) const { return SignedType(__DIV[v][o.v]); }
-        // SignedType& operator/=(const SignedType& o) { return v = __DIV[v][o.v], *this; }
+        // SamllType operator/(const SamllType& o) const { return SamllType(__DIV[v][o.v]); }
+        // SamllType& operator/=(const SamllType& o) { return v = __DIV[v][o.v], *this; }
     #undef sign
     #undef MASK
 };
 // ----------
 
 // 函数和数据的定义
-using T01 = SignedType<nT, double, LEN, 1>;
-using T05 = SignedType<nT, double, LEN, 5>;
+using T01 = SamllType<nT, double, LEN, 1>;
+using T05 = SamllType<nT, double, LEN, 5>;
 
 nT __SIGMOID01[N], __F[N][N], __TIMES[N][N];
 
@@ -78,9 +78,13 @@ double ff(double a, double x) { return  a / (a + (1.0 - a) * exp(-x)); }
 T05 times0105(T01 x, T05 y) { return T05(__TIMES[x.get()][y.get()]); }
 // ----------
 
-#include "LinearAlgebra.hpp"
 
-void init() { // 预处理
+// 先定义 SamllType 和相关函数后再包含 LinearAlgebra.hpp
+#include "LinearAlgebra.hpp"
+// ----------
+
+// 预处理
+void init() {
     for (nT i = 0; i < N; i++) __SIGMOID01[i] = T01(sigmoidf(T01(i).val())).get();
     for (nT i = 0; i < N; i++) {
         for (nT j = 0; j < N; j++)
@@ -90,6 +94,7 @@ void init() { // 预处理
         for (nT j = 0; j < N; j++)
             __TIMES[i][j] = T05(T01(i).val() * T05(j).val()).get();
 }
+// ----------
 
 // Net
 using Mat01 = LinearAlgebra::Matrix<T01>;
