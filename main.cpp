@@ -74,7 +74,7 @@ nT __SIGMOID01[N], __F[N][N], __TIMES[N][N];
 T01 sigmoid(T01 x) { return T01(__SIGMOID01[x.get()]); }
 T01 f(T01 x, T05 y) { return T01(__F[x.get()][y.get()]); }
 double sigmoidf(double x) { return 1.0 / (1.0 + std::exp(-x)); }
-double ff(double a, double x) { return  a / (a + (1.0 - a) * exp(-x)); }
+double ff(double a, double x) { return  a / (a + (1.0 - a) * std::exp(-x)); }
 T05 times0105(T01 x, T05 y) { return T05(__TIMES[x.get()][y.get()]); }
 // ----------
 
@@ -105,7 +105,7 @@ namespace QNet {
     Mat01 forward(Mat01 input) {
         // BT mx(-7.0), mn(7.0);
         for (size_t i = 0; i < weights.size(); ++i) {
-            Mat01 next(1, weights[i].M(), sigmoid(T01(0.0)));
+            Mat01 next(1, weights[i].M(), sigmoid(T01((double) 0)));
             for (size_t j = 0; j < weights[i].N(); j++) {
                 for (size_t k = 0; k < weights[i].M(); k++) {
                     next(0, k) = f(next(0, k), times0105(input(0, j), weights[i](j, k)));
@@ -151,7 +151,7 @@ namespace QNet {
                 for (size_t j = 0; j < m; j++) {
                     fread(&tmp, sizeof(float), 1, fin);
                     // x(i, j) = tmp;
-                    x(i, j) = T05(tmp);
+                    x(i, j) = T05((double) tmp);
                 }
             }
         }
@@ -163,7 +163,7 @@ namespace QNet {
                 for (size_t i = 0; i < n; i++) {
                     fread(&tmp, sizeof(float), 1, fin);
                     // x(0, i) = tmp;
-                    x(0, i) = T05(tmp);
+                    x(0, i) = T05((double) tmp);
                 }
             }
         // }
@@ -180,7 +180,7 @@ void loadData(const string& Path, vector<Mat01>& inputs, vector<Mat01>& targets)
     ifstream fin(Path);
     int tmp;
     for (size_t i = 0; i < 10; i++) {
-        size_t sz; Mat01 ans(1, 10), in(1, 28 * 28); ans(0, i) = T01((float) 1);
+        size_t sz; Mat01 ans(1, 10), in(1, 28 * 28); ans(0, i) = T01((double) 1);
         fin >> i >> sz;
         os << "Loading " << sz << " samples for digit " << i << endl;
         while (sz--) {
