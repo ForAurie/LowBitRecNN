@@ -222,5 +222,6 @@ int main() {
     }
     os << "Testing completed." << endl;
     os << "Accuracy: " << correct << " / " << inputs.size() << " = " << (correct * 100.0 / inputs.size()) << "%" << endl;
+    // 原模型在 float 下的测试正确率为 95.7%，目前是 92.74%，有一定精度损失，在可接受范围内，如果原模型更优可能能够减少精度损失的比例。
     return 0;
 }
