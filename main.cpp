@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <string>
 #include <fstream>
+#include "LinearAlgebra.hpp"
 
 // 全局常量
 using nT = std::uint16_t;
@@ -17,7 +18,7 @@ constexpr int LEN = 13, N = 1 << LEN;
 // ----------
 
 // 类的定义
-template <typename T = std::uint16_t, typename T1 = float, int len = 12, int V = 5>
+template <typename T = std::uint16_t, typename T1 = float, int len = 13, int V = 5>
 class SamllType {
     #define sign (v >> (len - 1))
     #define MASK ((T(1) << (len - 1)) - 1)
@@ -31,8 +32,8 @@ class SamllType {
         }
         constexpr SamllType(): v(0) {}
         constexpr SamllType(T v) : v(v) {}
-        constexpr SamllType(const SamllType& o) = default;
-        constexpr SamllType(T1 x) : v(x >= T1(0) ? T(0) : T(1) << (len - 1)) {
+        constexpr SamllType(const SamllType& o) : v(o.v) {}
+        constexpr SamllType(T1 x) : v(x >= T1(0) ? T(0) : (T(1) << (len - 1))) {
             if (x < T1(0)) x = -x;
             v |= std::min((T) MASK, (T) std::round(x / (T1) V * (T1) MASK));
         }
@@ -48,18 +49,6 @@ class SamllType {
             else return __val() < o.__val();
         }
         SamllType& operator=(const SamllType&o) { v = o.v; return *this; }
-
-        // SamllType operator+(const SamllType& o) const { return SamllType(__ADD[v][o.v]); }
-        // SamllType& operator+=(const SamllType& o) { return v = __ADD[v][o.v], *this; }
-
-        // SamllType operator-(const SamllType& o) const { return SamllType(__SUB[v][o.v]); }
-        // SamllType& operator-=(const SamllType& o) { return v = __SUB[v][o.v], *this; }
-
-        // SamllType operator*(const SamllType& o) const { return SamllType(__TIMES[v][o.v]); }
-        // SamllType& operator*=(const SamllType& o) { return v = __TIMES[v][o.v], *this; }
-
-        // SamllType operator/(const SamllType& o) const { return SamllType(__DIV[v][o.v]); }
-        // SamllType& operator/=(const SamllType& o) { return v = __DIV[v][o.v], *this; }
     #undef sign
     #undef MASK
 };
@@ -69,27 +58,18 @@ class SamllType {
 using T01 = SamllType<nT, double, LEN, 1>;
 using T05 = SamllType<nT, double, LEN, 5>;
 
-nT __SIGMOID01[N], __F[N][N], __TIMES[N][N];
+nT __F[N][N], __TIMES[N][N];
 
-T01 sigmoid(T01 x) { return T01(__SIGMOID01[x.get()]); }
-T01 f(T01 x, T05 y) { return T01(__F[x.get()][y.get()]); }
-double sigmoidf(double x) { return 1.0 / (1.0 + std::exp(-x)); }
+T01 f(const T01& x, const T05& y) { return T01(__F[x.get()][y.get()]); }
 double ff(double a, double x) { return  a / (a + (1.0 - a) * std::exp(-x)); }
-T05 times0105(T01 x, T05 y) { return T05(__TIMES[x.get()][y.get()]); }
-// ----------
-
-
-// 先定义 SamllType 和相关函数后再包含 LinearAlgebra.hpp
-#include "LinearAlgebra.hpp"
+T05 times0105(const T01& x, const T05& y) { return T05(__TIMES[x.get()][y.get()]); }
 // ----------
 
 // 预处理
-void init() {
-    for (nT i = 0; i < N; i++) __SIGMOID01[i] = T01(sigmoidf(T01(i).val())).get();
-    for (nT i = 0; i < N; i++) {
+void preprocessing() {
+    for (nT i = 0; i < N; i++)
         for (nT j = 0; j < N; j++)
             __F[i][j] = T01(ff(T01(i).val(), T05(j).val())).get();
-    }
     for (nT i = 0; i < N; i++)
         for (nT j = 0; j < N; j++)
             __TIMES[i][j] = T05(T01(i).val() * T05(j).val()).get();
@@ -103,9 +83,9 @@ using Mat05 = LinearAlgebra::Matrix<T05>;
 namespace QNet {
     std::vector<Mat05> weights, biases;
     Mat01 forward(Mat01 input) {
-        // BT mx(-7.0), mn(7.0);
+        // BT mx(-7.0), mn(7.0); 计算值域时的代码
         for (size_t i = 0; i < weights.size(); ++i) {
-            Mat01 next(1, weights[i].M(), sigmoid(T01((double) 0)));
+            Mat01 next(1, weights[i].M(), T01((double) 0.5)); // sigmoid(0) = 0.5
             for (size_t j = 0; j < weights[i].N(); j++) {
                 for (size_t k = 0; k < weights[i].M(); k++) {
                     next(0, k) = f(next(0, k), times0105(input(0, j), weights[i](j, k)));
@@ -120,11 +100,11 @@ namespace QNet {
                 // mx = std::max(mx, biases[i](0, j));
             }
         }
-        // std::cout << "Activation range: [" << mn.val() << ", " << mx.val() << "]" << std::endl;
+        // std::cout << "Range: [" << mn.val() << ", " << mx.val() << "]" << std::endl;
         // exit(0);
         return input;
     }
-    void open(const std::string& filename) {
+    void open(const std::string& filename) { // 读取模型
         FILE *fin = fopen(filename.c_str(), "rb");
         char sign;
         unsigned int typeSize;
@@ -150,22 +130,20 @@ namespace QNet {
             for (size_t i = 0; i < n; i++) {
                 for (size_t j = 0; j < m; j++) {
                     fread(&tmp, sizeof(float), 1, fin);
-                    // x(i, j) = tmp;
                     x(i, j) = T05((double) tmp);
                 }
             }
         }
         // if (haveBiases) {
-            for (auto &x: biases) {
-                size_t n;
-                fread(&n, sizeof(size_t), 1, fin);
-                x.resize(1, n);
-                for (size_t i = 0; i < n; i++) {
-                    fread(&tmp, sizeof(float), 1, fin);
-                    // x(0, i) = tmp;
-                    x(0, i) = T05((double) tmp);
-                }
+        for (auto &x: biases) {
+            size_t n;
+            fread(&n, sizeof(size_t), 1, fin);
+            x.resize(1, n);
+            for (size_t i = 0; i < n; i++) {
+                fread(&tmp, sizeof(float), 1, fin);
+                x(0, i) = T05((double) tmp);
             }
+        }
         // }
         fclose(fin);
     }
@@ -178,25 +156,22 @@ using namespace std;
 // 数据加载和预测
 void loadData(const string& Path, vector<Mat01>& inputs, vector<Mat01>& targets) {
     ifstream fin(Path);
-    int tmp;
     for (size_t i = 0; i < 10; i++) {
-        size_t sz; Mat01 ans(1, 10), in(1, 28 * 28); ans(0, i) = T01((double) 1);
-        fin >> i >> sz;
-        os << "Loading " << sz << " samples for digit " << i << endl;
-        while (sz--) {
+        size_t n; Mat01 tar(1, 10), in(1, 28 * 28); tar(0, i) = T01((double) 1);
+        fin >> i >> n;
+        os << "Loading " << n << " samples for digit " << i << "." << endl;
+        while (n--) {
+            int d;
             for (size_t j = 0; j < 28 * 28; j++)
-                fin >> tmp, in(0, j) = T01((double) tmp);
+                fin >> d, in(0, j) = T01((double) d);
             inputs.push_back(in);
-            targets.push_back(ans);
+            targets.push_back(tar);
         }
     }
     fin.close();
 }
 int predict(const Mat01& output) {
     int maxIndex = 0;
-    // for (size_t i = 0; i < output.M(); i++)
-    //     os << round(output(0, i).val()) << " ";
-    // os << endl;
     for (size_t i = 1; i < output.M(); i++)
         if (output(0, maxIndex) < output(0, i))
             maxIndex = i;
@@ -205,23 +180,26 @@ int predict(const Mat01& output) {
 // ----------
 
 int main() {
-    init();
-    os << "Loading ANN model..." << endl;
-	string Path;
-    Path = "..\\example2.model";
-	QNet::open(Path);
+    os << "preprocessing..." << endl;
+    preprocessing();
+    os << "Completed!" << endl;
 
-    os << "Loading Testing data..." << endl;
+    os << "Loading model..." << endl;
+	QNet::open((string) "..\\HDigitRec.model");
+    os << "Completed!" << endl;
+
+    os << "Loading testing data..." << endl;
     vector<Mat01> inputs, targets;
-    loadData("..\\TestData.txt", inputs, targets);
+    loadData("..\\TestingData.txt", inputs, targets);
+    os << "Completed!" << endl;
 
     os << "Testing..." << endl;
     int correct = 0;
-    for (size_t i = 0; i < inputs.size(); i++) {
+    for (size_t i = 0; i < inputs.size(); i++)
         correct += (predict(QNet::forward(inputs[i])) == predict(targets[i]));
-    }
-    os << "Testing completed." << endl;
+    os << "Completed!" << endl;
+
     os << "Accuracy: " << correct << " / " << inputs.size() << " = " << (correct * 100.0 / inputs.size()) << "%" << endl;
-    // 原模型在 float 下的测试正确率为 95.7%，目前是 92.74%，有一定精度损失，在可接受范围内，如果原模型更优可能能够减少精度损失的比例。
+    // 原模型在 float 下的测试正确率为 95.7%，目前是 92.74%，有一定精度损失，在可接受范围内，如果原模型更优可能能够减少精度损失。
     return 0;
 }
